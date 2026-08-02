@@ -1,10 +1,10 @@
 """
-eda.py
+eda_utils.py
 
 A reusable toolkit of Exploratory Data Analysis (EDA) functions.
 Import into any project with:
 
-    from eda import *
+    from eda_utils import *
 
 Suggested order of use:
 1. summarize, check_skewness                              -> OVERVIEW
@@ -25,7 +25,7 @@ Suggested order of use:
    plot_feature_importance                                -> MODEL EVALUATION
 8. auto_plot                                              -> SMART SELECTOR
 
-Default color  : #62866C 
+Default color  : #2E86AB (steel blue)
 Default theme  : theme_minimal()
 All charts support:
     figure_size=(width, height)  -> resize any chart
@@ -55,16 +55,16 @@ from plotnine import (
     geom_segment, geom_tile, geom_text,
     geom_hline, geom_abline, geom_smooth,
     geom_vline,
-    scale_x_continuous,
     facet_wrap,
     scale_fill_gradient2, scale_fill_manual,
+    scale_x_continuous,
     theme_minimal, theme, labs,
-    coord_flip, element_text, element_blank,
+    coord_flip, element_text, element_blank, element_line,  # add element_line here
     position_stack, position_dodge,
 )
 
-DEFAULT_COLOR  = '#62866C'
-DEFAULT_FIGURE = (9, 5)
+DEFAULT_COLOR  = '#62866c'
+DEFAULT_FIGURE = (6, 4)
 
 
 # ─────────────────────────────────────────────
@@ -77,101 +77,51 @@ def _apply_flip(plot, flip):
 def _apply_facet(plot, facet_by):
     return plot + facet_wrap(facet_by) if facet_by else plot
 
-def _labs(title, subtitle, x, y):
-    return labs(title=title, subtitle=subtitle, x=x, y=y)
+def _labs(title, subtitle, x, y, x_label=None, y_label=None):
+    return labs(
+        title=title,
+        subtitle=subtitle,
+        x=x_label if x_label is not None else x,
+        y=y_label if y_label is not None else y
+    )
 
 def _figsize(figure_size):
-    return theme(figure_size=figure_size)
+    return theme(
+        figure_size=figure_size,
+        # Left-align title and subtitle like Power BI
+        plot_title=element_text(ha='left', size=12, weight='bold'),
+        plot_subtitle=element_text(ha='left', size=9, margin={'t': 6, 'b': 10}),
+        # Clean subtle dashed gridlines
+        panel_grid_major=element_line(color='#e0e0e0', size=0.4, linetype='dashed'),
+        panel_grid_minor=element_blank(),
+    )
 
+
+# ─────────────────────────────────────────────
+# OVERVIEW
+# ─────────────────────────────────────────────
+
+def summarize(df):
+    """
+    Print shape, data types, and descriptive statistics.
+    Run this first before any plotting.
+    """
+    print(f"Shape: {df.shape[0]} rows x {df.shape[1]} columns\n")
+    print("--- Data Types ---")
+    print(df.dtypes)
+    print("\n--- Descriptive Statistics ---")
+    print(df.describe(include='all'
 
 
 # ─────────────────────────────────────────────
 # DISTRIBUTION
 # ─────────────────────────────────────────────
 
-def plot_distribution(df, column, fill=DEFAULT_COLOR, color='black',
-                      bins=30, title=None, subtitle=None, facet_by=None,
-                      show_mean=True, show_median=True, show_bell=False,
-                      figure_size=DEFAULT_FIGURE):
-    """
-    Histogram with optional mean line (red), median line (green), and bell curve.
-
-    show_mean  : red dashed vertical line at the mean (default True)
-    show_median: green dashed vertical line at the median (default True)
-    show_bell  : overlays a normal distribution bell curve so you can visually
-                 check how close your data is to normal (default False)
-    figure_size: (width, height) tuple, e.g. figure_size=(14, 6)
-
-    Examples:
-        plot_distribution(df, 'unit_price')
-        plot_distribution(df, 'unit_price', show_bell=True)
-        plot_distribution(df, 'unit_price', bins=50, figure_size=(14, 5))
-        plot_distribution(df, 'unit_price', facet_by='country')
-    """
-    from scipy.stats import norm
-
-    # Binary column guard
-    if df[column].dropna().nunique() == 2:
-        vals = sorted(df[column].dropna().unique().tolist())
-        print(f"Warning: '{column}' is a binary column {vals}.")
-        print(f"A histogram is not meaningful here — use plot_bar(df, '{column}') instead.")
-        print(f"Class distribution: {df[column].value_counts().to_dict()}")
-        return None
-
-    mean_val   = df[column].mean()
-    median_val = df[column].median()
-    skew_val   = df[column].skew()
-
-    title    = title    or f'Distribution of {column}'
-    subtitle = subtitle or (
-        f"Mean: {mean_val:.2f} | "
-        f"Median: {median_val:.2f} | "
-        f"Skewness: {skew_val:.2f}"
-    )
-
-    plot = (
-        ggplot(df, aes(x=column))
-        + geom_histogram(bins=bins, fill=fill, color=color, alpha=0.8)
-        + _labs(title, subtitle, column, 'Count')
-        + theme_minimal()
-        + _figsize(figure_size)
-    )
-
-    if show_mean:
-        plot = plot + geom_vline(
-            aes(xintercept=mean_val),
-            color='red', linetype='dashed', size=1
-        )
-
-    if show_median:
-        plot = plot + geom_vline(
-            aes(xintercept=median_val),
-            color='green', linetype='dashed', size=1
-        )
-
-    if show_bell:
-        col_data  = df[column].dropna()
-        x_range   = np.linspace(col_data.min(), col_data.max(), 200)
-        bin_width = (col_data.max() - col_data.min()) / bins
-        y_bell    = norm.pdf(x_range, mean_val, col_data.std()) * len(col_data) * bin_width
-        bell_df   = pd.DataFrame({column: x_range, 'y': y_bell})
-        plot = plot + geom_line(
-            data=bell_df,
-            mapping=aes(x=column, y='y'),
-            color='#E63946', size=1
-        )
-
-    plot = _apply_facet(plot, facet_by)
-    ipy_display(plot.draw())
-    plt.close()
-    return None
-
-
-
 
 def plot_boxplot(df, numeric_col, category_col=None, fill=DEFAULT_COLOR,
                  color='black', title=None, subtitle=None, flip=True,
-                 facet_by=None, figure_size=DEFAULT_FIGURE):
+                 facet_by=None, x_label=None, y_label=None,
+                      figure_size=DEFAULT_FIGURE):
     """
     Boxplot for a numeric column, optionally grouped by a category.
     flip=True (default) shows horizontal layout.
@@ -195,7 +145,7 @@ def plot_boxplot(df, numeric_col, category_col=None, fill=DEFAULT_COLOR,
         plot = (
             ggplot(df, aes(x=category_col, y=numeric_col))
             + geom_boxplot(fill=fill, color=color)
-            + _labs(title, subtitle, category_col, numeric_col)
+            + _labs(title, subtitle, category_col, numeric_col, x_label=x_label, y_label=y_label)
             + theme_minimal()
             + theme(axis_text_y=element_text(size=8))
             + _figsize(figure_size)
@@ -209,7 +159,7 @@ def plot_boxplot(df, numeric_col, category_col=None, fill=DEFAULT_COLOR,
         plot = (
             ggplot(df, aes(x=f'"{numeric_col}"', y=numeric_col))
             + geom_boxplot(fill=fill, color=color)
-            + _labs(title, subtitle, '', numeric_col)
+            + _labs(title, subtitle, '', numeric_col, x_label=x_label, y_label=y_label)
             + theme_minimal()
             + _figsize(figure_size)
         )
@@ -219,8 +169,6 @@ def plot_boxplot(df, numeric_col, category_col=None, fill=DEFAULT_COLOR,
     plt.close()
     return None
 
-
-
 # ─────────────────────────────────────────────
 # CATEGORICAL
 # ─────────────────────────────────────────────
@@ -228,7 +176,8 @@ def plot_boxplot(df, numeric_col, category_col=None, fill=DEFAULT_COLOR,
 def plot_bar(df, column, y_col=None, fill=DEFAULT_COLOR, color='black',
              title=None, subtitle=None, top_n=None, flip=True,
              bar_width=0.9, facet_by=None, show_values=False, value_size=7,
-             figure_size=DEFAULT_FIGURE):
+             x_label=None, y_label=None,
+                      figure_size=DEFAULT_FIGURE):
     """
     Bar chart showing frequency of each category.
 
@@ -276,7 +225,7 @@ def plot_bar(df, column, y_col=None, fill=DEFAULT_COLOR, color='black',
     plot = (
         ggplot(plot_df, aes(x=x_aes, y='count'))
         + geom_col(fill=fill, color=color, width=bar_width)
-        + _labs(title, subtitle, column, y_col if y_col else 'Count')
+        + _labs(title, subtitle, column, y_col if y_col else 'Count', x_label=x_label, y_label=y_label)
         + theme_minimal()
         + theme(axis_text_y=element_text(size=8))
         + _figsize(figure_size)
@@ -298,16 +247,59 @@ def plot_bar(df, column, y_col=None, fill=DEFAULT_COLOR, color='black',
     return None
 
 
+def plot_bar_stacked(df, x_col, fill_col, y_col=None, title=None,
+                     subtitle=None, flip=False, bar_width=0.9,
+                     x_label_angle=0, x_label=None, y_label=None,
+                      figure_size=DEFAULT_FIGURE):
+    """
+    Stacked bar chart showing composition of categories.
+
+    y_col: pass value column if data is pre-aggregated.
+           If not provided, counts rows automatically.
+
+    Examples:
+        plot_bar_stacked(netflix, 'country', 'type')
+        plot_bar_stacked(summary_df, 'country', 'type', y_col='count')
+        plot_bar_stacked(df, 'country', 'type', figure_size=(14, 7))
+    """
+    title    = title    or f'{x_col} by {fill_col} (stacked)'
+    subtitle = subtitle or f'Each bar shows the composition of {fill_col} within {x_col}'
+
+    if y_col:
+        plot = (
+            ggplot(df, aes(x=x_col, y=y_col, fill=fill_col))
+            + geom_col(position=position_stack(), color='white', width=bar_width)
+            + _labs(title, subtitle, x_col, y_col, x_label=x_label, y_label=y_label)
+            + theme_minimal()
+            + theme(axis_text_x=element_text(rotation=x_label_angle, hjust=1 if x_label_angle > 0 else 0.5),
+            plot_margin=0.05)
+            + _figsize(figure_size)
+        )
+    else:
+        plot = (
+            ggplot(df, aes(x=x_col, fill=fill_col))
+            + geom_bar(position=position_stack(), color='white', width=bar_width)
+            + _labs(title, subtitle, x_col, 'Count', x_label=x_label, y_label=y_label)
+            + theme_minimal()
+            + theme(axis_text_x=element_text(rotation=x_label_angle, hjust=1 if x_label_angle > 0 else 0.5),
+            plot_margin=0.05)
+            + _figsize(figure_size)
+        )
+    plot = _apply_flip(plot, flip)
+    ipy_display(plot.draw())
+    plt.close()
+    return None
 
 
 def plot_bar_grouped(df, x_col, fill_col, y_col=None, title=None,
-                    subtitle=None, flip=False, bar_width=0.9,
-                    x_label_angle=0, figure_size=DEFAULT_FIGURE):
+                     subtitle=None, flip=False, bar_width=0.9,
+                     x_label_angle=0, x_label=None, y_label=None,
+                      figure_size=DEFAULT_FIGURE):
     """
     Grouped (side-by-side) bar chart.
 
     y_col: pass value column if data is pre-aggregated.
-            If not provided, counts rows automatically.
+           If not provided, counts rows automatically.
 
     Examples:
         plot_bar_grouped(netflix, 'country', 'type')
@@ -321,7 +313,7 @@ def plot_bar_grouped(df, x_col, fill_col, y_col=None, title=None,
         plot = (
             ggplot(df, aes(x=x_col, y=y_col, fill=fill_col))
             + geom_col(position=position_dodge(), color='white', width=bar_width)
-            + _labs(title, subtitle, x_col, y_col)
+            + _labs(title, subtitle, x_col, y_col, x_label=x_label, y_label=y_label)
             + theme_minimal()
             + theme(axis_text_x=element_text(rotation=x_label_angle, hjust=1 if x_label_angle > 0 else 0.5),
             plot_margin=0.05)
@@ -331,7 +323,7 @@ def plot_bar_grouped(df, x_col, fill_col, y_col=None, title=None,
         plot = (
             ggplot(df, aes(x=x_col, fill=fill_col))
             + geom_bar(position=position_dodge(), color='white', width=bar_width)
-            + _labs(title, subtitle, x_col, 'Count')
+            + _labs(title, subtitle, x_col, 'Count', x_label=x_label, y_label=y_label)
             + theme_minimal()
             + theme(axis_text_x=element_text(rotation=x_label_angle, hjust=1 if x_label_angle > 0 else 0.5),
             plot_margin=0.05)
@@ -344,10 +336,10 @@ def plot_bar_grouped(df, x_col, fill_col, y_col=None, title=None,
 
 
 def plot_highlight_bar(df, col, value_col, highlight='both', n=1,
-                        top_color='#62866c', bottom_color='#E63946',
-                        normal_color='#c9c9c9', title=None, subtitle=None,
-                        flip=True, show_values=False, value_size=7,
-                        figure_size=DEFAULT_FIGURE):
+                       top_color='#62866c', bottom_color='#E63946',
+                       normal_color='#c9c9c9', title=None, subtitle=None,
+                       flip=True, show_values=False, value_size=7,
+                       figure_size=DEFAULT_FIGURE):
     """
     Bar chart with top and/or bottom n bars highlighted in different colors.
     Everything else stays grey.
@@ -385,7 +377,7 @@ def plot_highlight_bar(df, col, value_col, highlight='both', n=1,
         ggplot(plot_df, aes(f'reorder({col}, {value_col})', value_col, fill='_highlight'))
         + geom_col(show_legend=False)
         + scale_fill_manual(values=color_map)
-        + _labs(title, subtitle, col, value_col)
+        + _labs(title, subtitle, col, value_col, x_label=x_label, y_label=y_label)
         + theme_minimal()
         + _figsize(figure_size)
     )
@@ -404,78 +396,18 @@ def plot_highlight_bar(df, col, value_col, highlight='both', n=1,
 
 
 
-def plot_faceted_bar(df, col, value_col, facet_by, fill=DEFAULT_COLOR,
-        highlight_top=False, top_color='#62866c',
-        normal_color='#c9c9c9', title=None, subtitle=None,
-        ncol=2, show_values=False, value_size=7,
-        figure_size=DEFAULT_FIGURE):
-    """
-    Bar chart faceted (split into panels) by a category column.
-    Useful for comparing performance across segments, regions, or groups.
-
-    highlight_top : set True to highlight the highest bar in each panel (default False)
-    ncol          : number of columns in the facet grid (default 2)
-    show_values   : set True to display value labels (default False)
-    value_size    : font size of value labels (default 7)
-
-    Examples:
-        plot_faceted_bar(df, 'segment', 'profit', facet_by='region')
-        plot_faceted_bar(df, 'category', 'sales', facet_by='year', highlight_top=True)
-        plot_faceted_bar(df, 'segment', 'profit', facet_by='region', ncol=4)
-    """
-    plot_df = df[[col, value_col, facet_by]].copy()
-
-    n_panels = plot_df[facet_by].nunique()
-    title    = title    or f'{value_col} by {col}'
-    subtitle = subtitle or f'Faceted by {facet_by} — {n_panels} panels'
-
-    if highlight_top:
-        plot_df['_fill'] = plot_df.groupby(facet_by)[value_col].transform(
-            lambda x: x == x.max()
-        )
-        color_map = {True: top_color, False: normal_color}
-        plot = (
-            ggplot(plot_df, aes(x=col, y=value_col, fill='_fill'))
-            + geom_col(show_legend=False)
-            + scale_fill_manual(values=color_map)
-        )
-    else:
-        plot = (
-            ggplot(plot_df, aes(x=col, y=value_col))
-            + geom_col(fill=fill)
-        )
-
-    plot = (
-        plot
-        + facet_wrap(facet_by, ncol=ncol)
-        + _labs(title, subtitle, col, value_col)
-        + theme_minimal()
-        + theme(axis_text_x=element_text(angle=15, hjust=1))
-        + _figsize(figure_size)
-    )
-
-    if show_values:
-        plot = plot + geom_text(
-            aes(label=value_col),
-            position=position_stack(vjust=1.05),
-            size=value_size
-        )
-
-    ipy_display(plot.draw())
-    plt.close()
-    return None
-
 
 def plot_lollipop(df, column, y_col=None, title=None, subtitle=None,
-        top_n=None, color=DEFAULT_COLOR, flip=True,
-        line_size=0.8, point_size=3,
-        show_values=False, value_size=7,
-        figure_size=DEFAULT_FIGURE):
+                  top_n=None, color=DEFAULT_COLOR, flip=True,
+                  line_size=0.8, point_size=3,
+                  show_values=False, value_size=7,
+                  x_label=None, y_label=None,
+                      figure_size=DEFAULT_FIGURE):
     """
     Lollipop chart: cleaner alternative to bar charts for ranked data.
 
     y_col       : pass value column if data is pre-aggregated.
-                    If not provided, counts rows automatically.
+                  If not provided, counts rows automatically.
     show_values : set True to display value labels on points (default False)
     value_size  : font size of value labels (default 7)
 
@@ -502,7 +434,7 @@ def plot_lollipop(df, column, y_col=None, title=None, subtitle=None,
         ggplot(plot_df, aes(x=f'reorder({column}, count)', y='count'))
         + geom_segment(aes(xend=column, y=0, yend='count'), color=color, size=line_size)
         + geom_point(color=color, size=point_size)
-        + _labs(title, subtitle, column, y_col if y_col else 'Count')
+        + _labs(title, subtitle, column, y_col if y_col else 'Count', x_label=x_label, y_label=y_label)
         + theme_minimal()
         + theme(axis_text_y=element_text(size=8))
         + _figsize(figure_size)
@@ -526,10 +458,11 @@ def plot_lollipop(df, column, y_col=None, title=None, subtitle=None,
 # ─────────────────────────────────────────────
 
 def plot_line(df, x_col, y_col, color=DEFAULT_COLOR, title=None,
-            subtitle=None, facet_by=None, line_size=1,
-            show_points=False, point_color=None,
-            agg_func=None, x_breaks=None, x_label_angle=0,
-            figure_size=DEFAULT_FIGURE):
+              subtitle=None, facet_by=None, line_size=1,
+              show_points=False, point_color=None,
+              agg_func=None, x_breaks=None, x_label_angle=0,
+                      x_label=None, y_label=None,
+                      figure_size=DEFAULT_FIGURE):
     """
     Line chart for trends over time or any ordered x axis.
     Auto-subtitle shows date range if x_col is datetime.
@@ -559,7 +492,7 @@ def plot_line(df, x_col, y_col, color=DEFAULT_COLOR, title=None,
     plot = (
         ggplot(df, aes(x=x_col, y=y_col, group=1))
         + geom_line(color=color, size=line_size)
-        + _labs(title, subtitle, x_col, y_col)
+        + _labs(title, subtitle, x_col, y_col, x_label=x_label, y_label=y_label)
         + theme_minimal()
         + theme(axis_text_x=element_text(rotation=x_label_angle, hjust=1 if x_label_angle > 0 else 0.5),
             plot_margin=0.05)
@@ -584,11 +517,11 @@ def plot_line(df, x_col, y_col, color=DEFAULT_COLOR, title=None,
 
 
 
-
 def plot_area(df, x_col, y_col, fill=DEFAULT_COLOR, color=DEFAULT_COLOR,
               alpha=0.4, title=None, subtitle=None, line_size=1,
               show_points=False, agg_func=None, x_breaks=None,
-              x_label_angle=0, figure_size=DEFAULT_FIGURE):
+              x_label_angle=0, x_label=None, y_label=None,
+                      figure_size=DEFAULT_FIGURE):
     """
     Filled area chart. Good for showing volume trends over time.
 
@@ -612,7 +545,7 @@ def plot_area(df, x_col, y_col, fill=DEFAULT_COLOR, color=DEFAULT_COLOR,
     plot = (
         ggplot(df, aes(x=x_col, y=y_col))
         + geom_area(fill=fill, color=color, alpha=alpha, size=line_size)
-        + _labs(title, subtitle, x_col, y_col)
+        + _labs(title, subtitle, x_col, y_col, x_label=x_label, y_label=y_label)
         + theme_minimal()
         + theme(axis_text_x=element_text(rotation=x_label_angle, hjust=1 if x_label_angle > 0 else 0.5),
             plot_margin=0.05)
@@ -632,6 +565,8 @@ def plot_area(df, x_col, y_col, fill=DEFAULT_COLOR, color=DEFAULT_COLOR,
     ipy_display(plot.draw())
     plt.close()
     return None
+
+
 
 
 # ─────────────────────────────────────────────
@@ -659,6 +594,8 @@ def plot_correlation(df, title='Correlation Heatmap', subtitle=None,
     plt.tight_layout()
     plt.show()
     return corr
+
+
 
 
 
@@ -714,3 +651,125 @@ def plot_donut(df, column, y_col=None, title=None, subtitle=None,
     ax.set_title(f'{title}\n{subtitle}', fontsize=13, pad=20)
     plt.tight_layout()
     plt.show()
+
+
+
+# ─────────────────────────────────────────────
+# MODEL EVALUATION
+# ─────────────────────────────────────────────
+
+def plot_actual_vs_predicted(y_test, y_pred, point_color='#62866c',
+                              line_color='red', alpha=0.3,
+                              title='Actual vs Predicted',
+                              subtitle='Red line = perfect prediction',
+                              figure_size=(7, 5)):
+    """
+    Scatter plot of actual vs predicted values with a perfect prediction line.
+    Points close to the red line = good predictions.
+    Reusable across any regression model.
+
+    y_test : actual target values (array, Series, or list)
+    y_pred : predicted values from model.predict()
+
+    Examples:
+        plot_actual_vs_predicted(y_test, profit_pred)
+        plot_actual_vs_predicted(y_test, y_pred, point_color='#2E86AB')
+    """
+    import pandas as pd
+    from sklearn.metrics import r2_score, mean_absolute_error
+
+    r2  = r2_score(y_test, y_pred)
+    mae = mean_absolute_error(y_test, y_pred)
+    subtitle = subtitle or f'R² = {r2:.4f} | MAE = {mae:.2f}'
+
+    results_df = pd.DataFrame({'actual': y_test, 'predicted': y_pred})
+
+    plot = (
+        ggplot(results_df, aes(x='actual', y='predicted'))
+        + geom_point(color=point_color, alpha=alpha, size=1.5)
+        + geom_abline(intercept=0, slope=1, color=line_color, linetype='dashed')
+        + _labs(title, subtitle, 'Actual', 'Predicted', x_label=x_label, y_label=y_label)
+        + theme_minimal()
+        + _figsize(figure_size)
+    )
+    ipy_display(plot.draw())
+    plt.close()
+    return None
+
+
+def plot_feature_importance(model, feature_names, model_type='tree',
+                             top_n=None, pos_color='#62866c', neg_color='#E63946',
+                             title='Feature Importance',
+                             subtitle=None, flip=True, figure_size=(8, 6)):
+    """
+    Plot feature importance for any sklearn or XGBoost model.
+    Automatically handles both tree-based models and linear models.
+
+    model        : fitted model object
+    feature_names: list of feature column names (X.columns)
+    model_type   : 'tree' for Random Forest/XGBoost (uses feature_importances_)
+                   'linear' for Linear/Ridge/Lasso (uses coef_, direction matters)
+    top_n        : show only top N features (default None = show all)
+    pos_color    : color for positive coefficients/high importance (default green)
+    neg_color    : color for negative coefficients (default red, linear only)
+
+    Examples:
+        plot_feature_importance(model_xgb, X.columns)
+        plot_feature_importance(model_rf, X.columns, top_n=10)
+        plot_feature_importance(model_lr, X.columns, model_type='linear')
+    """
+    if model_type == 'tree':
+        importance_df = pd.DataFrame({
+            'feature':    list(feature_names),
+            'importance': model.feature_importances_
+        }).sort_values('importance')
+
+        if top_n:
+            importance_df = importance_df.tail(top_n)
+
+        subtitle = subtitle or 'Higher score = stronger influence on prediction'
+
+        plot = (
+            ggplot(importance_df, aes('reorder(feature, importance)', 'importance'))
+            + geom_col(fill=pos_color, show_legend=False)
+            + _labs(title, subtitle, 'Feature', 'Importance Score', x_label=x_label, y_label=y_label)
+            + theme_minimal()
+            + _figsize(figure_size)
+        )
+
+    elif model_type == 'linear':
+        importance_df = pd.DataFrame({
+            'feature':     list(feature_names),
+            'coefficient': model.coef_
+        }).sort_values('coefficient')
+
+        if top_n:
+            n = top_n // 2
+            importance_df = pd.concat([
+                importance_df.head(n),
+                importance_df.tail(n)
+            ])
+
+        importance_df['direction'] = importance_df['coefficient'].apply(
+            lambda x: 'Positive' if x > 0 else 'Negative'
+        )
+        subtitle = subtitle or 'Green = increases profit | Red = decreases profit'
+
+        plot = (
+            ggplot(importance_df, aes('reorder(feature, coefficient)', 'coefficient', fill='direction'))
+            + geom_col(show_legend=False)
+            + geom_hline(yintercept=0, linetype='dashed', color='black', size=0.4)
+            + scale_fill_manual(values={'Positive': pos_color, 'Negative': neg_color})
+            + _labs(title, subtitle, 'Feature', 'Coefficient', x_label=x_label, y_label=y_label)
+            + theme_minimal()
+            + _figsize(figure_size)
+        )
+    else:
+        raise ValueError("model_type must be 'tree' or 'linear'")
+
+    plot = _apply_flip(plot, flip)
+    ipy_display(plot.draw())
+    plt.close()
+    return None
+
+

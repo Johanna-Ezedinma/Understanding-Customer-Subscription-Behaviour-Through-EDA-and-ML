@@ -112,7 +112,7 @@ Model interpretation was performed two ways, and they told a partly overlapping,
 
 - **XGBoost's built-in feature importance** ranked `poutcome_success`, `month_mar`, and `contact_unknown` as the top three drivers.
 
-![Features](assets/feature_importances.png)
+![Features](assets/features.png)
 
 - **SHAP values** ranked `contact_unknown`, `poutcome_success`, and `day` as the top three, `poutcome_success` remained highly influential either way, while `contact_unknown` and timing-related features (`day`, `month`) were consistently important across both methods.
 
