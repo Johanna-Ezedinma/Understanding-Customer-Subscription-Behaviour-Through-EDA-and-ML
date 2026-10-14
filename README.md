@@ -1,10 +1,6 @@
-# Bank Marketing Analytics: Understanding Customer Subscription Through Exploratory Data Analysis and Machine Learning
-
-**Author:** Johanna Ezedinma  
+# Understanding Customer Subscription Through Exploratory Data Analysis and Machine Learning
+ 
 **Date:** August 2026
-
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/johanna-ezedinma/)
-[![Medium](https://img.shields.io/badge/Medium-12100E?style=for-the-badge&logo=medium&logoColor=white)](https://medium.com/@johannaezedinma) [![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Johanna-Ezedinma)
 
 ## Overview
 
